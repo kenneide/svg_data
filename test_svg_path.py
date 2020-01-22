@@ -15,6 +15,7 @@ class TestSvgPath(unittest.TestCase):
 		d = 'M0  0'
 		path = SvgPath(d)
 		commands = path.commands
+		print(commands)
 		self.assertEqual(len(commands), 1)
 		self.assertEqual(commands[0].type, 'M')
 
@@ -213,14 +214,14 @@ class TestVerticesAndCoordinates(unittest.TestCase):
 	def test_line_length(self):
 		d = 'M0 0 H3'
 		horizontal_line = SvgPath(d)
-		pathlength = horizontal_line.calculate_length()
+		pathlength = horizontal_line.length()
 		expected_pathlength = 3.
 		self.assertAlmostEqual(pathlength, expected_pathlength, places=8)
 			
 	def test_diagonal_line_length(self):
 		d = 'M0 0 L1 1'
 		diagonal_line = SvgPath(d)
-		pathlength = diagonal_line.calculate_length()
+		pathlength = diagonal_line.length()
 		expected_pathlength = np.sqrt(2.)
 		self.assertAlmostEqual(pathlength, expected_pathlength, places=8)
 		

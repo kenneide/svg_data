@@ -1,14 +1,23 @@
 from abc import ABC, abstractmethod
-	
-class SvgPathCommandInsufficientParametersException(BaseException):
+
+class SvgPathCommandException(BaseException):
 	pass
 	
-class SvgPathCommandTooManyParametersException(BaseException):
+class SvgPathCommandInsufficientParametersException(SvgPathCommandException):
 	pass
+	
+class SvgPathCommandTooManyParametersException(SvgPathCommandException):
+	pass
+	
+class SvgPathDoesntBeginWithMException(SvgPathCommandException):
+	pass
+
+class SvgPathCommandNotImplementedException(SvgPathCommandException):
+	pass
+	
 
 class SvgPathCommandFactory():
 	def __init__(self):
-		self.KNOWN_COMMANDS = { 'M', 'm', 'L', 'l', 'H', 'h', 'V', 'v', 'Z', 'z' }
 		self.required_num_of_parameters = {
 			'M': 2,
 			'm': 2,
@@ -21,6 +30,7 @@ class SvgPathCommandFactory():
 			'Z': 0,
 			'z': 0
 		}
+		self.KNOWN_COMMANDS = self.required_num_of_parameters.keys()
 		self._pathstart = None
 		
 	def get_required_num_of_parameters(self, type):
@@ -30,12 +40,12 @@ class SvgPathCommandFactory():
 		
 	def get_command(self, type, parameters):
 		if type not in self.KNOWN_COMMANDS:
-			raise NotImplementedError
+			raise SvgPathCommandNotImplementedException()
 			
 		if len(parameters) < self.required_num_of_parameters[type]:
-			raise SvgPathCommandInsufficientParametersException
+			raise SvgPathCommandInsufficientParametersException()
 		elif len(parameters) > self.required_num_of_parameters[type]:
-			raise SvgPathCommandTooManyParametersException
+			raise SvgPathCommandTooManyParametersException()
 			
 		if type == 'M':
 			command = MSvgPathCommand(parameters)
@@ -59,6 +69,94 @@ class SvgPathCommandFactory():
 			command = ZSvgPathCommand(parameters, pathstart=self._pathstart)
 		
 		return command
+		
+	def tokenize_pathdata(self, pathdata):
+		
+		# attempt to put a space in between all parameters and commands
+		for command in self.KNOWN_COMMANDS:
+			pathdata = pathdata.replace(command, ' ' + command + ' ')
+		pathdata = pathdata.replace('-', ' -')
+		pathdata = pathdata.replace(',', ' ')
+		
+		while '  ' in pathdata:
+			pathdata = pathdata.replace('  ', ' ')
+			
+		pathdata = pathdata.strip()
+		
+		# find the corner case where 50.1.45 should be 50.1 0.45
+		need_space_here = []
+		looking_for_space = False
+		for index, character in enumerate(pathdata):
+			if character == '.' and not looking_for_space:
+				looking_for_space = True
+			elif character == '.' and looking_for_space:
+				looking_for_space = True
+				need_space_here.append(index)
+			elif character == ' ':
+				looking_for_space = False
+				
+		offset = 0
+		for index in need_space_here:
+			pathdata = pathdata[:index+offset] + ' 0' +pathdata[index+offset:]
+			offset += 2
+
+		tokens = pathdata.split(' ')
+		if not tokens[0] == 'M':
+			raise SvgPathDoesntBeginWithMException()
+
+		return tokens
+		
+	def extract_commands_from_pathdata(self, pathdata):
+		tokens = self.tokenize_pathdata(pathdata)
+		
+		types = []
+		parameters = []
+		
+		current_command = None
+		current_parameters = []
+		for token in tokens:
+			if token.isalpha():
+				if current_command is not None:
+					n_params = self.required_num_of_parameters[current_command]
+					if len(current_parameters) == n_params:
+						types.append(current_command)
+						parameters.append(current_parameters)
+					elif len(current_parameters) > n_params and n_params > 0:
+						while len(current_parameters) >= n_params:
+							types.append(current_command)
+							parameters.append(current_parameters[:n_params])
+							current_parameters = current_parameters[n_params:]
+					elif len(current_parameters) > n_params and n_params == 0:
+						raise SvgPathCommandTooManyParametersException()
+					elif len(current_parameters) < n_params:
+						raise SvgPathCommandInsufficientParametersException()
+						
+				current_command = token
+				current_parameters = []
+			else:
+				if current_command is not None:
+					current_parameters.append(float(token))
+				elif token == '':
+					break
+				else:
+					raise SvgPathDataUnexpectedParameterException()
+
+		n_params = self.required_num_of_parameters[current_command]
+		if len(current_parameters) == n_params:
+			types.append(current_command)
+			parameters.append(current_parameters)
+		elif len(current_parameters) > n_params and n_params > 0:
+			while len(current_parameters) >= n_params:
+				types.append(current_command)
+				parameters.append(current_parameters[:n_params])
+				current_parameters = current_parameters[n_params:]
+		elif len(current_parameters) > n_params and n_params == 0:
+			raise SvgPathCommandTooManyParametersException()
+		elif len(current_parameters) < n_params:
+			raise SvgPathCommandInsufficientParametersException()
+
+		return (types, parameters)
+		
 
 class SvgPathCommand(ABC):
 	def __init__(self, type, parameters):

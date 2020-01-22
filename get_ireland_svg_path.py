@@ -12,10 +12,10 @@ with open(filename, 'r', encoding='utf-8') as svgfile:
 svgdata = htmldata.find("svg")
 groups = svgdata.find_all('g')
 
-n_coordinates = 5
+n_coordinates = 50
 
 fieldnames = ['County', 'x', 'y', 'path']
-with open('county_coordinates_100.csv', 'w', encoding='utf-8') as csvfile:
+with open('county_coordinates.csv', 'w', encoding='utf-8') as csvfile:
 	writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 	writer.writeheader()
 	for group in groups:

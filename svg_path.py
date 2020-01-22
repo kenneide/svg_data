@@ -1,24 +1,27 @@
 from svg_path_commands import *
 import numpy as np
 import matplotlib.pyplot as plt
+from svg_transform import *
 
-class SvgPathUnexpectedParameterException(BaseException):
-	pass
-	
-class SvgPathInsufficientParametersException(BaseException):
+class SvgPathDataUnexpectedParameterException(BaseException):
 	pass
 		
 
 class SvgPath():
 		
-	def __init__(self, pathdata: str, transform: None):
+	def __init__(self, pathdata: str, transform=None):
 		
 		self._commands = []
 		self._vertices = []
 		self._pathstart = None
-
-		self._transform = transform
 		self._pathdata = pathdata
+		
+		self._command_factory = SvgPathCommandFactory()
+		
+		if isinstance(transform, SvgTransform):
+			self.transform = transform
+		else:
+			self.transform = SvgTransform(text=None)
 
 		self.parse_commands_from_pathdata()
 		assert self.commands[0].type == 'M'
@@ -31,7 +34,7 @@ class SvgPath():
 	def preprocess_and_tokenize_pathdata(self):
 		data = self._pathdata
 		
-		for command in KNOWN_COMMANDS:
+		for command in self._command_factory.KNOWN_COMMANDS:
 			data = data.replace(command, ' ' + command + ' ')
 		
 		data = data.replace('-', ' -')
@@ -76,106 +79,39 @@ class SvgPath():
 				elif token == '':
 					break
 				else:
-					raise SvgPathUnexpectedParameterException()
+					raise SvgPathDataUnexpectedParameterException()
 		
 		self.add_command(this_command_type, this_command_parameters)
-		
-		while self.check_for_multiple_parameters() > 0:
-			pass
-		
-	def check_for_multiple_parameters(self):
-		indices_where_to_insert = []
-		
-		for index, command in enumerate(self._commands):
-			n = required_num_of_parameters[command.type]
-			if len(command.parameters) > n:
-				#need to split this command into two...
-				indices_where_to_insert.append(index)
-			elif len(command.parameters) < n:
-				print('command {} does not have enough parameters (got {})'.format(command.type, len(command.parameters)))
-				raise SvgPathInsufficientParametersException
-				
-		offset = 0
-		for index in indices_where_to_insert:
-			jndex = index + offset
-			n = required_num_of_parameters[self._commands[jndex].type]
-			new_type = self._commands[jndex].type
-			new_parameters = self._commands[jndex].parameters[n:]
-			self._commands[jndex].parameters = self._commands[jndex].parameters[:n]
-			new_command = SvgPathCommand(new_type, new_parameters)
-			self._commands = self._commands[:jndex+1] + [new_command] + self._commands[jndex+1:]
-			offset += 1
-			
-		return len(indices_where_to_insert)
 					
-	def add_command(self, command_type, parameters):
-		self._commands.append(SvgPathCommand(command_type, parameters))
+	def add_command(self, type, parameters):
+		n = len(parameters)
+		m = self._command_factory.get_required_num_of_parameters(type)
+		
+		if m == 0 and n > 0:
+			raise SvgPathCommandTooManyParametersException
+		elif m == 0 and n == 0:
+			command = self._command_factory.get_command(type, parameters)
+			self._commands.append(command)
+		elif m > 0:
+			parameters = np.array(parameters).reshape((n/m,m))
+			for parameter_set in parameters:
+				command = self._command_factory.get_command(type, parameter_set)
+				self._commands.append(command)
 	
 	@property
 	def vertices(self):
 		return self._vertices
-		
-	def transform_vertices(self, vertices):
-		x_offset, y_offset = self.get_translate_offset()
-		vertices = [(x+x_offset, y+y_offset) for x, y in vertices]
-		return vertices				
 			
 	def calculate_vertices(self):
 		vertices = []
 		current_vertex = None
 		for command in self.commands:
-			current_vertex = self.get_next_vertex(command, current_vertex)
+			current_vertex = command.get_next_vertex(current_vertex)
 			vertices.append(current_vertex)
 		
-		self._vertices = self.transform_vertices(vertices)
+		self._vertices = self.transform.apply(vertices)
 	
 		return self._vertices
-		
-	def get_translate_offset(self):
-		if self._transform is not None:
-			self._transform = self._transform.replace(',', ' ')
-			while '  ' in self._transform:
-				self._transform = self._transform.replace('  ', ' ')
-			
-			try:
-				first, second = self._transform.split('(')[1].split(' ')
-				first = float(first)
-				second = float(second[:-1])
-				return first, second
-			except:
-				# only a single item to unpack --> assume y_offset == 0
-				first = self._transform.split('(')[1]
-				first = float(first[:-1])
-				return (first, 0.)
-		else:
-			return (0., 0.)
-		
-	def get_next_vertex(self, command, current_vertex):
-		if command.type == 'M':
-			next_vertex = (command.parameters[0], command.parameters[1])
-			if self._pathstart is None:
-				self._pathstart = next_vertex
-		elif command.type == 'L':
-			next_vertex = (command.parameters[0], command.parameters[1])
-		elif command.type == 'H':
-			next_vertex = (command.parameters[0], current_vertex[1])
-		elif command.type == 'V':
-			next_vertex = (current_vertex[0], command.parameters[0])			
-		elif command.type == 'm':
-			next_vertex = (command.parameters[0]+current_vertex[0], command.parameters[1]+current_vertex[1])
-		elif command.type == 'l':
-			next_vertex = (command.parameters[0]+current_vertex[0], command.parameters[1]+current_vertex[1])
-		elif command.type == 'h':
-			next_vertex = (command.parameters[0]+current_vertex[0], current_vertex[1])
-		elif command.type == 'v':
-			next_vertex = (current_vertex[0], command.parameters[0]+current_vertex[1])
-		elif command.type.lower() == 'z':
-			if self._pathstart is not None:
-				next_vertex = self._pathstart
-			else:
-				raise Exception(msg='No path start to go to!')
-				
-		return next_vertex
 		
 	def calculate_length(self):
 		pathlength = 0.
@@ -232,9 +168,9 @@ class SvgPath():
 			
 		return coordinates
 		
-	def plot(self, n_coordinates: int, x_offset=0., y_offset=0.):
+	def plot(self, n_coordinates: int):
 		coordinates = self.get_coordinates(n_coordinates)
-		x = [element[0]+x_offset for element in coordinates]
-		y = [element[1]+y_offset for element in coordinates]
+		x = [element[0] for element in coordinates]
+		y = [element[1] for element in coordinates]
 		plt.plot(x, -1*np.array(y))
 		plt.show()

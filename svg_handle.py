@@ -1,45 +1,35 @@
 from bs4 import BeautifulSoup
 from svg_path import SvgPath
+import xml.etree.ElementTree as ET
 
-
-import xml.parsers.expat
-
-# 3 handler functions
-def start_element(name, attrs):
-    print('Start element:', name, attrs)
-def end_element(name):
-    print('End element:', name)
-def char_data(data):
-    print('Character data:', repr(data))
+CONTAINER_ELEMENT = { 'a', 'defs', 'glyph', 'g', 'marker', 'mask', 'missing-glyph', 'pattern', 'svg', 'switch', 'symbol'}
 
 class SvgHandle():
 	def __init__(self, xml_data):
 		self._raw_data = xml_data
-		self._elements = self.import_data()
+		self._elementtree = self.construct_tree_from_data()
+		self.traverse_tree(self._elementtree, transform_list=[])
 		
-	def import_data(self):
+	def construct_tree_from_data(self):
 		if self._raw_data is not None:
-			return BeautifulSoup(self._raw_data, 'html5lib')
+			return ET.fromstring(self._raw_data)
 		else:
 			return None
-			
-	def parse(self):
+
+	def traverse_tree(self, element, transform):
+		if 'path' in child.tag:
+			return SvgPath(d=child.attrib['d'], transform)		
+		elif 'transform' in element.attrib.keys():
+				transform_list.append(child.attrib['transform'])
+		
+		for child in children:
+			paths = self.traverse_tree(child, transform_list=transform_list)
+			if 'path' in child.tag:
 				
-		parser = xml.parsers.expat.ParserCreate()
+			elif 'transform' in child.attrib.keys():
+				transform_list.append(child.attrib['transform'])
 		
-		parser.StartElementHandler = start_element
-		parser.EndElementHandler = end_element
-		parser.CharacterDataHandler = char_data
-		
-		parser.Parse(xml_data, 1)
-		
-	@property
-	def elements(self):
-		return self._elements
-		
-	@property
-	def groups(self):
-		return self.elements.find_all('g')
+		return 
 		
 	@property
 	def paths(self):

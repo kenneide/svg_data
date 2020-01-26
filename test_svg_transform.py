@@ -56,7 +56,7 @@ class TestSvgTransfrom(unittest.TestCase):
 
 	def test_add_transform(self):
 		t = SvgTransform(text='rotate(45)')
-		t.add_transform(text='scale(2)')
+		t.add_transform(transform_text='scale(2)')
 		matrix_got = t.matrix
 		matrix_expected = [
 			[2.*np.cos(np.pi*0.25), -2.*np.sin(np.pi*0.25), 0., 0.],

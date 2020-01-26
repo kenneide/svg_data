@@ -1,4 +1,5 @@
 import numpy as np
+from attribute_parser import FunctionParser
 
 def matrix_mult(A, B):
 	N = len(A)
@@ -19,9 +20,11 @@ def matrix_mult(A, B):
 
 class SvgTransformUnknownOperationException(Exception):
 	pass
+	
 
 class SvgTransform():
 	def __init__(self, text=None):
+		self.transform_list = []
 		self._matrix = [
 			[1., 0., 0., 0.],
 			[0., 1., 0., 0.],
@@ -31,58 +34,59 @@ class SvgTransform():
 			
 		if text is not None:
 			self.add_transform(text)
+			
 	@property
 	def matrix(self):
 		return self._matrix
+	
+	@matrix.setter
+	def matrix(self, matrix):
+		assert len(matrix) == 4
+		assert len(matrix[0]) == 4
+		self._matrix = matrix
 		
-	def add_transform(self, text):
-		m = self.convert_text_to_matrix(text)
+	def add_transform(self, transform_text):
+		m = self.convert_text_to_matrix(transform_text)
 		self.update_matrix(m)
-		
-	def extract_parameters(self, text, num_param):
-		parameter_text = text[text.find("(")+1:text.find(")")]
-		if num_param == 1:
-			parameter_list = [float(parameter_text)]
-		if num_param == 2:
-			parameter_text = parameter_text.replace(',', ' ')
-			while '  ' in parameter_text:
-				parameter_text = parameter_text.replace('  ', ' ')
-			parameter_list = [float(p) for p in parameter_text.split(' ')]
-		return parameter_list
+		self.transform_list.append(transform_text)
 		
 	def convert_text_to_matrix(self, text):
+		parser = FunctionParser()
 		if 'translate' in text:
-			param = self.extract_parameters(text, 2)
+			param = parser.extract_parameters(text)
 			if len(param) == 1:
 				# if only a single parameters is extracted, the second is assumed to be zero
 				param.append(0.)
-			m = [
-				[1., 0., 0., param[0]],
-				[0., 1., 0., param[1]],
+			x_offset, y_offset = param
+			matrix = [
+				[1., 0., 0., x_offset],
+				[0., 1., 0., y_offset],
 				[0., 0., 1., 0.],
 				[0., 0., 0., 1.],
 				]
 		elif 'scale' in text:
-			param = self.extract_parameters(text, 1)
-			m = [
+			param = parser.extract_parameters(text)
+			scale, = param
+			matrix = [
 				[param[0], 0., 0., 0.],
 				[0., param[0], 0., 0.],
 				[0., 0., 1., 0.],
 				[0., 0., 0., 1.],
 				]
 		elif 'rotate' in text:
-			param = self.extract_parameters(text, 1)
-			angle = 2*np.pi*param[0]/360.
-			m = [
-				[np.cos(angle), -np.sin(angle), 0., 0.],
-				[np.sin(angle), np.cos(angle), 0., 0.],
+			param = parser.extract_parameters(text)
+			angle_deg, = param
+			angle_rad = 2*np.pi*angle_deg/360.
+			matrix = [
+				[np.cos(angle_rad), -np.sin(angle_rad), 0., 0.],
+				[np.sin(angle_rad), np.cos(angle_rad), 0., 0.],
 				[0., 0., 1., 0.],
 				[0., 0., 0., 1.],
 				]
 		else:
 			raise SvgTransformUnknownOperationException
 			
-		return m
+		return matrix
 
 	def apply(self, v):
 		v_transformed = []
@@ -98,6 +102,10 @@ class SvgTransform():
 			
 		return v_transformed
 			
+	def combine(self, text):
+		new_transform = self
+		new_transform.add_transform(text)
+		return new_transform
 						
 	def update_matrix(self, m):
-		self._matrix = matrix_mult(m, self._matrix)
+		self._matrix = matrix_mult(self._matrix, m)

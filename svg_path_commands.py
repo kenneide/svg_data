@@ -28,7 +28,9 @@ class SvgPathCommandFactory():
 			'H': 1,
 			'h': 1,
 			'Z': 0,
-			'z': 0
+			'z': 0,
+			'C': 6,
+			'c': 6,
 		}
 		self.subsequent_command = {
 			'M': 'L',
@@ -44,7 +46,8 @@ class SvgPathCommandFactory():
 		}
 		
 		self.KNOWN_COMMANDS = self.required_num_of_parameters.keys()
-		self._pathstart = None
+		self._pathstart = []
+		self._subpath_index = -1
 		
 	def get_required_num_of_parameters(self, type):
 		if type not in self.KNOWN_COMMANDS:
@@ -62,8 +65,8 @@ class SvgPathCommandFactory():
 			
 		if type == 'M':
 			command = MSvgPathCommand(parameters)
-			if self._pathstart is None:
-				self._pathstart = command.get_pathstart()
+			self._subpath_index += 1
+			self._pathstart.append(command.get_pathstart())
 		elif type == 'L':
 			command = LSvgPathCommand(parameters)
 		elif type == 'H':
@@ -72,7 +75,8 @@ class SvgPathCommandFactory():
 			command = VSvgPathCommand(parameters)
 		elif type == 'm':
 			command = mSvgPathCommand(parameters)
-			self._pathstart = command.get_pathstart()	
+			self._subpath_index += 1
+			self._pathstart.append(command.get_pathstart())
 		elif type == 'l':
 			command = lSvgPathCommand(parameters)
 		elif type == 'h':
@@ -80,7 +84,7 @@ class SvgPathCommandFactory():
 		elif type == 'v':
 			command = vSvgPathCommand(parameters)
 		elif type.lower() == 'z':
-			command = ZSvgPathCommand(parameters, pathstart=self._pathstart)
+			command = ZSvgPathCommand(parameters, pathstart=self._pathstart[self._subpath_index])
 		
 		return command
 		

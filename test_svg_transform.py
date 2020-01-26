@@ -97,3 +97,15 @@ class TestSvgTransfrom(unittest.TestCase):
 			[57., 90.]
 		]
 		self.assertTrue(matricesAlmostEqual(matrix_got, matrix_expected, places=8))
+		
+	def test_matrix_transform(self):
+		t = SvgTransform(text='matrix(1, 2, 3, 4, 5, 6)')
+		matrix_got = t.matrix
+		matrix_expected = [
+			[1., 3., 0., 5.],
+			[2., 4., 0., 6.],
+			[0., 0., 1., 0.],
+			[0., 0., 0., 1.],
+			]
+		self.assertTrue(matricesAlmostEqual(matrix_got, matrix_expected, places=8))
+		

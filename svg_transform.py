@@ -52,8 +52,8 @@ class SvgTransform():
 		
 	def convert_text_to_matrix(self, text):
 		parser = FunctionParser()
+		param = parser.extract_parameters(text)
 		if 'translate' in text:
-			param = parser.extract_parameters(text)
 			if len(param) == 1:
 				# if only a single parameters is extracted, the second is assumed to be zero
 				param.append(0.)
@@ -65,21 +65,27 @@ class SvgTransform():
 				[0., 0., 0., 1.],
 				]
 		elif 'scale' in text:
-			param = parser.extract_parameters(text)
 			scale, = param
 			matrix = [
-				[param[0], 0., 0., 0.],
-				[0., param[0], 0., 0.],
+				[scale, 0., 0., 0.],
+				[0., scale, 0., 0.],
 				[0., 0., 1., 0.],
 				[0., 0., 0., 1.],
 				]
 		elif 'rotate' in text:
-			param = parser.extract_parameters(text)
 			angle_deg, = param
 			angle_rad = 2*np.pi*angle_deg/360.
 			matrix = [
 				[np.cos(angle_rad), -np.sin(angle_rad), 0., 0.],
 				[np.sin(angle_rad), np.cos(angle_rad), 0., 0.],
+				[0., 0., 1., 0.],
+				[0., 0., 0., 1.],
+				]
+		elif 'matrix' in text:
+			a, b, c, d, e, f = param
+			matrix = [
+				[a,  c,  0., e],
+				[b,  d,  0., f],
 				[0., 0., 1., 0.],
 				[0., 0., 0., 1.],
 				]

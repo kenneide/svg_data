@@ -4,25 +4,21 @@ import matplotlib.pyplot as plt
 from svg_transform import *
 from svg_path_segment import *
 
+from svg_element import *
+
 class SvgPathDataUnexpectedParameterException(BaseException):
 	pass
-		
 
-class SvgPath():
+
+class SvgPath(SvgGraphicsElement):
 		
-	def __init__(self, pathdata: str, transform=None):
-		
+	def __init__(self, id=None, pathdata=None, transform=None):
+		super().__init__(id=id, transform=transform)
 		self._commands = []
-		self._vertices = []
 		self._segments = []
 		self._pathstart = None
 		self._pathdata = pathdata
 		
-		if isinstance(transform, SvgTransform):
-			self.transform = transform
-		else:
-			self.transform = SvgTransform(text=None)
-
 		self._factory = SvgPathCommandFactory()
 		types, parameters = self._factory.extract_commands_from_pathdata(self._pathdata)
 		self.add_commands(types, parameters)
@@ -32,28 +28,21 @@ class SvgPath():
 	@property
 	def commands(self):
 		return self._commands
-		
-	@property
-	def vertices(self):
-		return self._vertices
 					
 	def add_commands(self, type, parameters):
 		for type, parameter_set in zip(type, parameters):
 			command = self._factory.get_command(type, parameter_set)
 			self._commands.append(command)
-			
+
 	def segmentize(self):
-		vertices = []
 		current_vertex = None
 		for command in self.commands:
 			next_vertex = command.get_next_vertex(current_vertex)
-			vertices.append(next_vertex)
+			self._vertices.append(next_vertex)
 			current_vertex = next_vertex
 		
-		self._vertices = self.transform.apply(vertices)
-		
-		current_vertex = self._vertices[0]
-		for command, next_vertex in zip(self.commands[1:], self._vertices[1:]):
+		current_vertex = self.transformed_vertices[0]
+		for command, next_vertex in zip(self.commands[1:], self.transformed_vertices[1:]):
 			self._segments.append(LinearSvgPathSegment(start=current_vertex, end=next_vertex))
 			current_vertex = next_vertex
 		
@@ -63,12 +52,29 @@ class SvgPath():
 			pathlength += segment.length()
 		return pathlength
 		
-	def get_coordinates(self, n_coordinates: int):
-		assert n_coordinates > 0
+	def plot(self, n_coordinates):
+		entry = self.export(n_coordinates)
+		plt.plot(entry['x'], entry['y'])
+		
+	def export(self, n_coordinates):
+		points = self.get_coordinates(n_coordinates)
+		x = [element[0] for element in points]
+		y = [element[1] for element in points]
+		table = {
+			'id': self._id,
+			'x': x,
+			'y': y,
+			'index': list(np.arange(1,len(points)+1)),
+		}
+		return table
+		
+	def get_coordinates(self, n_coordinates):
 
+		transformed_vertices = self.transform.apply(self.vertices)
+		
 		distance_between_coordinates = self.length() / (n_coordinates - 1)
 		
-		coordinates = [self.vertices[0]]
+		coordinates = [transformed_vertices[0]]
 		subpath_index = 0
 		cumulative_distance_to_next_vertex = self._segments[0].length()
 		for index in range(1, n_coordinates):
@@ -88,10 +94,3 @@ class SvgPath():
 			coordinates.append(next_coordinate)			
 			
 		return coordinates
-		
-	def plot(self, n_coordinates: int):
-		coordinates = self.get_coordinates(n_coordinates)
-		x = [element[0] for element in coordinates]
-		y = [element[1] for element in coordinates]
-		plt.plot(x, -1*np.array(y))
-		plt.show()

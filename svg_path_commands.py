@@ -101,7 +101,7 @@ class SvgPathCommandFactory():
 			offset += 2
 
 		tokens = pathdata.split(' ')
-		if not tokens[0] == 'M':
+		if not tokens[0].lower() == 'm':
 			raise SvgPathDoesntBeginWithMException()
 
 		return tokens

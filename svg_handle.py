@@ -1,36 +1,83 @@
-from bs4 import BeautifulSoup
-from svg_path import SvgPath
 import xml.etree.ElementTree as ET
+import copy
+import csv
+import matplotlib.pyplot as plt
+import re
 
-CONTAINER_ELEMENT = { 'a', 'defs', 'glyph', 'g', 'marker', 'mask', 'missing-glyph', 'pattern', 'svg', 'switch', 'symbol'}
+def get_xml_namespace(element):
+	m = re.match(r'\{.*\}', element.tag)
+	return m.group(0) if m else ''
+
+from svg_transform import SvgTransform
+from svg_element_factory import SvgGraphicsElementFactory
+
+from attribute_parser import FunctionParser
+
 
 class SvgHandle():
 	def __init__(self, xml_data):
-		self._raw_data = xml_data
-		self._elementtree = self.construct_tree_from_data()
-		self.traverse_tree(self._elementtree, transform_list=[])
+		self._xml_data = xml_data
+		self._factory = SvgGraphicsElementFactory()
+		self._elements = []
 		
-	def construct_tree_from_data(self):
-		if self._raw_data is not None:
-			return ET.fromstring(self._raw_data)
-		else:
-			return None
+		self.x_offset = None
+		self.y_offset = None
+		self.width = None
+		self.height = None
+		
+		if self._xml_data is not None:
+			self._elementtree = ET.fromstring(self._xml_data)	
+			self._xml_namespace = get_xml_namespace(self._elementtree)
+			self.populate_elements(self._elementtree, transform=SvgTransform())
+		
+	def populate_elements(self, element, transform):
+		
+		if 'transform' in element.attrib.keys():
+			transform = transform.combine(element.attrib['transform'])
+			
+		if 'svg' in element.tag and 'viewBox' in element.attrib.keys():
+			parser = FunctionParser()
+			parameters = parser.extract_parameters(element.attrib['viewBox'])
+			self.x_offset, self.y_offset, self.width, self.height = parameters
 
-	def traverse_tree(self, element, transform):
-		if 'path' in child.tag:
-			return SvgPath(d=child.attrib['d'], transform)		
-		elif 'transform' in element.attrib.keys():
-				transform_list.append(child.attrib['transform'])
-		
-		for child in children:
-			paths = self.traverse_tree(child, transform_list=transform_list)
-			if 'path' in child.tag:
+		tag = element.tag.replace(self._xml_namespace, '')
+		if tag in self._factory.KNOWN_GRAPHICS:
+			self._elements.append(
+				self._factory.get_graphics(
+					type=tag, 
+					attrib=element.attrib, 
+					transform=transform
+					)
+				)
 				
-			elif 'transform' in child.attrib.keys():
-				transform_list.append(child.attrib['transform'])
-		
-		return 
+		for child_element in element.getchildren():
+			self.populate_elements(child_element, copy.deepcopy(transform))
 		
 	@property
-	def paths(self):
-		return [SvgPath(pathtag) for pathtag in self.elements.find_all('path')]
+	def elements(self):
+		return self._elements
+		
+	def export_to_csv(self, filename, n_coordinates):
+		fieldnames = ['id', 'x', 'y', 'index']
+		with open(filename, 'w', encoding='utf-8') as csvfile:
+			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+			writer.writeheader()
+			for element in self.elements:
+				pathtable = element.export(n_coordinates)
+				for index, x, y in zip(pathtable['index'], pathtable['x'], pathtable['y']):
+					entry = dict()
+					entry['id'] = pathtable['id']
+					entry['x'] = x
+					entry['y'] = y
+					entry['index'] = index
+					writer.writerow(entry)
+		return 0
+		
+	def plot(self, n_coordinates=None):
+		plt.figure()
+		for element in self.elements:
+			element.plot(n_coordinates)
+		ax = plt.gca()
+		ax.set_xlim((self.x_offset, self.x_offset+self.width))
+		ax.set_ylim((self.y_offset, self.y_offset+self.height))
+		ax.invert_yaxis()

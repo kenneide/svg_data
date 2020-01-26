@@ -1,49 +1,102 @@
 import unittest
+import os
 from svg_handle import *
-from svg_path import *
-
-complex_xml = """<?xml version="1.0" encoding="UTF-8"?>
-<svg width="996.567" height="1074.307" viewBox="0 0 996.567 1074.307">
-	<g id="Group_39" data-name="Group 39" transform="translate(-570.214 -227.66)">
-		<g id="Group_37" data-name="Group 37" transform="translate(0 307)">
-			<g id="Group_36" data-name="Group 36" transform="translate(-410.524 3.027)">
-				<g id="Group_31" data-name="Group 31" transform="translate(980.738 175.153)">
-					<path id="Path_8" data-name="Path 8" d="M237.5,211.13"></path>
-				</g>
-				<g id="Group_32" data-name="Group 32" transform="translate(1118.755 720.81)">
-					<path id="Path_9" data-name="Path 9" d="M378.345,43.255" transform="translate(114.76 13.12)"></path>
-				</g>
-				<g id="Group_35" data-name="Group 35" transform="translate(1613.922 425.317)">
-					<path id="Path_10" data-name="Path 10" d="M278.81,16.089" transform="translate(84.57 4.88)"></path>
-				</g>
-				<g id="Group_33" data-name="Group 33" transform="translate(1330.158 355.879)">
-					<path id="Path_11" data-name="Path 11" d="M222.1,150.86" transform="translate(67.39 45.76)"></path>
-				</g>
-				<g id="Group_34" data-name="Group 34" transform="translate(1557.547 345.14)">
-					<path id="Path_12" data-name="Path 12" d="M133.852,47.47" transform="translate(40.6 14.4)"></path>
-				</g>
-			</g>
-		</g>
-	</g>
-</svg>"""
+from svg_element import *
+from test_helper import *
 
 
 class TestSvgHandle(unittest.TestCase):
+	@classmethod
+	def setUpClass(cls):
+		cls.complex_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<svg width="996.567" height="1074.307" viewBox="1.0 1.0 996.567 1074.307">
+	<g id="Group1" transform="scale(2)">
+		<g id="Group4" transform="translate(10 10)">
+			<path id="Path1" d="M0 0 h2 v2, h-2, z"></path>
+		</g>
+		<g id="Group5" transform="translate(5, 6)">
+			<path id="Path2" d="M20,40l3,2"></path>
+		</g>
+	</g>
+</svg>"""
+	
 	def test_init(self):
 		h = SvgHandle(xml_data=None)
 		self.assertTrue(isinstance(h, SvgHandle))
-		self.assertTrue(h.elements is None)
+		self.assertEqual(len(h.elements), 0)
 		
-	def test_get_paths(self):
-		h = SvgHandle(complex_xml)
-		self.assertEqual(h.paths, 5)
-		self.assertTrue(isinstance(h.paths[0], SvgPath))
+	def test_get_elements(self):
+		h = SvgHandle(xml_data=self.complex_xml)
+		ids_expected = ['Path1', 'Path2']
 		
-	def test_transformed_correctly(self):
-		xml_data = ''
+		self.assertTrue(isinstance(h.elements, list))
+		self.assertEqual(len(h.elements), len(ids_expected))
+		
+		for element, id_expected in zip(h.elements, ids_expected):
+			self.assertTrue(issubclass(type(element), SvgGraphicsElement))
+			self.assertEqual(element.id, id_expected)
+
+	def test_transforms_cascade_correctly(self):
+		h = SvgHandle(xml_data=self.complex_xml)
+		element = h.elements[0]
+		vertices = element.transformed_vertices
+		expected_vertices = [
+			(20.0, 20.0),
+			(24.0, 20.0),
+			(24.0, 24.0),
+			(20.0, 24.0),
+			(20.0, 20.0),
+		]
+		self.assertEqual(len(vertices), 5)
+		for vertex, expected_vertex in zip(vertices, expected_vertices):
+			self.assertTrue(tuplesAlmostEqual(vertex, expected_vertex, places=8))
+		
+	def test_export_csv(self):
+		xml_data = """
+		<svg>
+		<path id="path1" d="M0,0l2,2"></path>
+		</svg>
+		"""
 		h = SvgHandle(xml_data)
-		paths = h.paths[0]
-		vertex = paths.get_coordinates(1)
-		expected_vertex = [(10., 10.)]
-		self.assertEqual(len(h.paths), 1)
+		
+		filename = 'test.csv'
+		statusflag = h.export_to_csv(filename, 3)
+		
+		self.assertEqual(statusflag, 0)
+		
+		with open(filename, 'r') as file:
+			csv_got = file.read()
+		os.remove(filename)
+		
+		csv_expected = """id,x,y,index
+path1,0.0,0.0,1
+path1,1.0,1.0,2
+path1,2.0,2.0,3
+"""
+		
+		print(csv_got)
+		print(csv_expected)
+		
+		self.assertEqual(csv_got, csv_expected)
+		
+	def test_plot(self):
+		h = SvgHandle(xml_data=self.complex_xml)
+		
+		h.plot(10)
+		ax = plt.gca()
+		
+		x_min, x_max = ax.get_xlim()
+		y_min, y_max = ax.get_ylim()
+		
+		x_min_expected = 1.0
+		x_max_expected = 997.567
+		y_min_expected = 1.0
+		y_max_expected = 1075.307
+		
+		limits_got = [x_min, x_max, y_min, y_max]
+		# y-min and y-max are swapped here because of the axis inversion!
+		limits_expected = [x_min_expected, x_max_expected, y_max_expected, y_min_expected]
+		for got, expected in zip(limits_got, limits_expected):
+			self.assertAlmostEqual(got, expected, places=1)
+		
 		

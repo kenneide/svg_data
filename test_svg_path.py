@@ -44,6 +44,7 @@ class TestSvgPath(unittest.TestCase):
 			if not command.type == type:
 				return False
 			for parameter_got, parameter_expected in zip(command.parameters, parameters):
+				print('got {}, expected{}'.format(parameter_got, parameter_expected))
 				if np.abs(parameter_got - parameter_expected) > tolerance:
 					return False
 		return True
@@ -93,12 +94,30 @@ class TestSvgPath(unittest.TestCase):
 			self.is_correctly_parsed(path.commands, expected_types, expected_parameters)
 		)
 		
+	def test_subsequent_implicit_commmands_following_M(self):
+		pathdata = 'M0,0,10,10,30,30'
+		path = SvgPath(pathdata=pathdata)
+		expected_types = ['M', 'L', 'L']
+		expected_parameters = [[0., 0.], [10., 10.], [30., 30.]]
+		self.assertTrue(
+			self.is_correctly_parsed(path.commands, expected_types, expected_parameters)
+		)
+		
+	def test_subsequent_implicit_commmands_following_m(self):
+		pathdata = 'm0,0,10,10,30,30'
+		path = SvgPath(pathdata=pathdata)
+		expected_types = ['M', 'l', 'l']
+		expected_parameters = [[0., 0.], [10., 10.], [30., 30.]]
+		self.assertTrue(
+			self.is_correctly_parsed(path.commands, expected_types, expected_parameters)
+		)
+		
 	def test_complex_parse(self):
 		pathdata = 'M-36.8-4.738-40.039-1.5v8l-3.991,3.991H-54.2V5.47h-8.813L-67.2,9.654h-10.48v6.384l3.359,3.346V21.6l-5.968,5.968-.837-.837h-5.609v6.39l-5.541,5.541L-96.78,34.16l4.419-4.537V13.354L-96.228,9.48-91.444,4.7-96.6-.461l6.78-6.787h10.5l5.212-5.212h1.742v7.065H-57.8l6.21-6.2h7.939Z'
 		path = SvgPath(pathdata=pathdata)
 		
 		expected_types = [
-			'M', 'M', 'v', 'l', 'H', 'V', 'h', 'L', 'h', 'v', 'l', 'V', 'l', 'l', 'h', 'v',
+			'M', 'L', 'v', 'l', 'H', 'V', 'h', 'L', 'h', 'v', 'l', 'V', 'l', 'l', 'h', 'v',
 			'l', 'L', 'l', 'V', 'L', 'L', 'L', 'l', 'h', 'l', 'h', 'v', 'H', 'l', 'h', 'Z'
 			]
 		

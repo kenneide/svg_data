@@ -30,6 +30,19 @@ class SvgPathCommandFactory():
 			'Z': 0,
 			'z': 0
 		}
+		self.subsequent_command = {
+			'M': 'L',
+			'm': 'l',
+			'V': 'V',
+			'v': 'v',
+			'L': 'L',
+			'l': 'l',
+			'H': 'H',
+			'h': 'h',
+			'Z': 'Z',
+			'z': 'z'
+		}
+		
 		self.KNOWN_COMMANDS = self.required_num_of_parameters.keys()
 		self._pathstart = None
 		
@@ -59,6 +72,7 @@ class SvgPathCommandFactory():
 			command = VSvgPathCommand(parameters)
 		elif type == 'm':
 			command = mSvgPathCommand(parameters)
+			self._pathstart = command.get_pathstart()	
 		elif type == 'l':
 			command = lSvgPathCommand(parameters)
 		elif type == 'h':
@@ -106,6 +120,28 @@ class SvgPathCommandFactory():
 
 		return tokens
 		
+	def append_types_and_parameter_lists(self, types, parameters, current_command, current_parameters):
+		n_params = self.required_num_of_parameters[current_command]
+		if len(current_parameters) == n_params:
+			types.append(current_command)
+			parameters.append(current_parameters)
+		elif len(current_parameters) > n_params and n_params > 0:
+			# add one command of the prescribed type		
+			types.append(current_command)
+			parameters.append(current_parameters[:n_params])
+			current_parameters = current_parameters[n_params:]
+			# following parameters belong to the implied subsequent types, as per the standard
+			while len(current_parameters) >= n_params:
+				types.append(self.subsequent_command[current_command])
+				parameters.append(current_parameters[:n_params])
+				current_parameters = current_parameters[n_params:]
+		elif len(current_parameters) > n_params and n_params == 0:
+			raise SvgPathCommandTooManyParametersException()
+		elif len(current_parameters) < n_params:
+			raise SvgPathCommandInsufficientParametersException()
+			
+		return types, parameters
+		
 	def extract_commands_from_pathdata(self, pathdata):
 		tokens = self.tokenize_pathdata(pathdata)
 		
@@ -117,43 +153,32 @@ class SvgPathCommandFactory():
 		for token in tokens:
 			if token.isalpha():
 				if current_command is not None:
-					n_params = self.required_num_of_parameters[current_command]
-					if len(current_parameters) == n_params:
-						types.append(current_command)
-						parameters.append(current_parameters)
-					elif len(current_parameters) > n_params and n_params > 0:
-						while len(current_parameters) >= n_params:
-							types.append(current_command)
-							parameters.append(current_parameters[:n_params])
-							current_parameters = current_parameters[n_params:]
-					elif len(current_parameters) > n_params and n_params == 0:
-						raise SvgPathCommandTooManyParametersException()
-					elif len(current_parameters) < n_params:
-						raise SvgPathCommandInsufficientParametersException()
-						
+					types, parameters = self.append_types_and_parameter_lists(
+						types, 
+						parameters, 
+						current_command, 
+						current_parameters,
+						)
 				current_command = token
 				current_parameters = []
-			else:
-				if current_command is not None:
+			elif current_command is not None:
 					current_parameters.append(float(token))
-				elif token == '':
-					break
-				else:
-					raise SvgPathDataUnexpectedParameterException()
-
-		n_params = self.required_num_of_parameters[current_command]
-		if len(current_parameters) == n_params:
-			types.append(current_command)
-			parameters.append(current_parameters)
-		elif len(current_parameters) > n_params and n_params > 0:
-			while len(current_parameters) >= n_params:
-				types.append(current_command)
-				parameters.append(current_parameters[:n_params])
-				current_parameters = current_parameters[n_params:]
-		elif len(current_parameters) > n_params and n_params == 0:
-			raise SvgPathCommandTooManyParametersException()
-		elif len(current_parameters) < n_params:
-			raise SvgPathCommandInsufficientParametersException()
+			elif token == '':
+				break
+			else:
+				raise SvgPathDataUnexpectedParameterException()
+	
+		types, parameters = self.append_types_and_parameter_lists(
+			types, 
+			parameters, 
+			current_command, 
+			current_parameters,
+			)
+			
+		# the first M command will always be expressed in absolute terms
+		# it's in the spec like that!
+		if types[0] == 'm':
+			types[0] = 'M'
 
 		return (types, parameters)
 		
@@ -178,9 +203,9 @@ class MSvgPathCommand(SvgPathCommand):
 	def get_pathstart(self):
 		return (self.parameters[0], self.parameters[1])
 	
-class mSvgPathCommand(SvgPathCommand):
+class mSvgPathCommand(MSvgPathCommand):
 	def __init__(self, parameters):
-		super().__init__('m', parameters)
+		super().super().__init__('m', parameters)
 
 	def get_next_vertex(self, command, current_vertex):
 		next_vertex = (self.parameters[0], self.parameters[1])

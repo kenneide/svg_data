@@ -1,6 +1,5 @@
 import unittest
-import numpy as np
-from svg_transform import *
+from svg.transform import *
 from test_helper import *
 
 

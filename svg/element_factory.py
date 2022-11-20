@@ -1,4 +1,4 @@
-from svg_path import SvgPath
+from svg.path import SvgPath
 
 
 class SvgGraphicsElementsFactoryNotImplementedError(NotImplementedError):

@@ -1,7 +1,6 @@
 import unittest
-import numpy as np
 from test_helper import *
-from svg_path_segment import *
+from svg.path_segment import *
 
 
 class TestLinearSvgPathSegment(unittest.TestCase):

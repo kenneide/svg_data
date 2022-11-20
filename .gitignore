@@ -1,3 +1,5 @@
 /county_coordinates_100.csv
 /scratch.py
 /output.csv
+.idea/*
+svg/__pycache__/*

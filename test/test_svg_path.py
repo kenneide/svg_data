@@ -1,7 +1,6 @@
 import unittest
-import numpy as np
-from svg_path import SvgPath
-from svg_transform import SvgTransform
+from svg.path import SvgPath
+from svg.transform import SvgTransform
 from test_helper import *
 
 class TestSvgPath(unittest.TestCase):

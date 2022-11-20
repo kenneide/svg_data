@@ -4,14 +4,15 @@ import csv
 import matplotlib.pyplot as plt
 import re
 
+from svg.transform import SvgTransform
+from svg.element_factory import SvgGraphicsElementFactory
+
+from svg.attribute_parser import FunctionParser
+
+
 def get_xml_namespace(element):
 	m = re.match(r'\{.*\}', element.tag)
 	return m.group(0) if m else ''
-
-from svg_transform import SvgTransform
-from svg_element_factory import SvgGraphicsElementFactory
-
-from attribute_parser import FunctionParser
 
 
 class SvgHandle():

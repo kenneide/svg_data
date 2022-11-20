@@ -1,10 +1,9 @@
-from svg_path_commands import *
-import numpy as np
 import matplotlib.pyplot as plt
-from svg_transform import *
-from svg_path_segment import *
 
-from svg_element import *
+from svg.path_commands import *
+from svg.path_segment import *
+from svg.element import *
+
 
 class SvgPathDataUnexpectedParameterException(BaseException):
 	pass

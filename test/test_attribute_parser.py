@@ -1,5 +1,5 @@
 import unittest
-from attribute_parser import *
+from svg.attribute_parser import *
 
 class TestAttributeParser(unittest.TestCase):
 	

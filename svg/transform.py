@@ -1,5 +1,6 @@
 import numpy as np
-from attribute_parser import FunctionParser
+from svg.attribute_parser import FunctionParser
+
 
 def matrix_mult(A, B):
 	N = len(A)
@@ -17,6 +18,7 @@ def matrix_mult(A, B):
 				product[index][jndex] += A[index][kndex] * B[kndex][jndex]
 				
 	return product
+
 
 class SvgTransformUnknownOperationException(Exception):
 	pass

@@ -1,8 +1,8 @@
 import unittest
 import os
 
-from svg_handle import *
-from svg_element import *
+from svg.handle import *
+from svg.element import *
 from test_helper import *
 
 

@@ -5,22 +5,30 @@ class SvgGraphicsElementsFactoryNotImplementedError(NotImplementedError):
 	pass
 	
 
-class SvgGraphicsElementFactory():
+class SvgGraphicsElementFactory:
+
+	KNOWN_GRAPHICS = ['path']
+
 	def __init__(self):
-		self.KNOWN_GRAPHICS = ['path']
+		pass
 		
 	def get_graphics(self, type, attrib, transform):
-		if type in self.KNOWN_GRAPHICS:			
-			id = None
-			if 'id' in attrib.keys():
-				id = attrib['id']
-				
-			if type == 'path':
-				pathdata = None
-				if 'id' in attrib.keys():
-					id = attrib['id']
-				if 'd' in attrib.keys():
-					pathdata = attrib['d']
-				return SvgPath(id=id, pathdata=pathdata, transform=transform)
-		else:
+		if type not in self.KNOWN_GRAPHICS:
 			raise SvgGraphicsElementsFactoryNotImplementedError()
+
+		id = None
+		if 'id' in attrib.keys():
+			id = attrib['id']
+
+		if type != 'path':
+			raise NotImplementedError
+
+		pathdata = None
+		if 'id' in attrib.keys():
+			id = attrib['id']
+		if 'd' in attrib.keys():
+			pathdata = attrib['d']
+
+		return SvgPath(id=id, pathdata=pathdata, transform=transform)
+
+

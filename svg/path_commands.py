@@ -21,35 +21,38 @@ class SvgPathCommandNotImplementedException(SvgPathCommandException):
     pass
 
 
-class SvgPathCommandFactory():
-    def __init__(self):
-        self.required_num_of_parameters = {
-            'M': 2,
-            'm': 2,
-            'V': 1,
-            'v': 1,
-            'L': 2,
-            'l': 2,
-            'H': 1,
-            'h': 1,
-            'Z': 0,
-            'z': 0,
-            'C': 6,
-            'c': 6,
-        }
-        self.subsequent_command = {
-            'M': 'L',
-            'm': 'l',
-            'V': 'V',
-            'v': 'v',
-            'L': 'L',
-            'l': 'l',
-            'H': 'H',
-            'h': 'h',
-            'Z': 'Z',
-            'z': 'z'
-        }
+class SvgPathCommandFactory:
+    required_num_of_parameters = {
+        'M': 2,
+        'm': 2,
+        'V': 1,
+        'v': 1,
+        'L': 2,
+        'l': 2,
+        'H': 1,
+        'h': 1,
+        'Z': 0,
+        'z': 0,
+        'C': 6,
+        'c': 6,
+    }
 
+    subsequent_command = {
+        'M': 'L',
+        'm': 'l',
+        'V': 'V',
+        'v': 'v',
+        'L': 'L',
+        'l': 'l',
+        'H': 'H',
+        'h': 'h',
+        'Z': 'Z',
+        'z': 'z',
+        'C': 'C',
+        'c': 'c',
+    }
+
+    def __init__(self):
         self.KNOWN_COMMANDS = self.required_num_of_parameters.keys()
         self._pathstart = []
         self._subpath_index = -1
@@ -59,7 +62,7 @@ class SvgPathCommandFactory():
             raise NotImplementedError
         return self.required_num_of_parameters[type]
 
-    def get_command(self, type, parameters):
+    def get_command(self, type, parameters, isFirst: bool = False):
         if type not in self.KNOWN_COMMANDS:
             raise SvgPathCommandNotImplementedException()
 
@@ -79,7 +82,10 @@ class SvgPathCommandFactory():
         elif type == 'V':
             command = VSvgPathCommand(parameters)
         elif type == 'm':
-            command = mSvgPathCommand(parameters)
+            if isFirst:
+                command = MSvgPathCommand(parameters)
+            else:
+                command = mSvgPathCommand(parameters)
             self._subpath_index += 1
             self._pathstart.append(command.get_pathstart())
         elif type == 'l':
@@ -90,6 +96,8 @@ class SvgPathCommandFactory():
             command = vSvgPathCommand(parameters)
         elif type.lower() == 'z':
             command = ZSvgPathCommand(parameters, pathstart=self._pathstart[self._subpath_index])
+        else:
+            raise SvgPathCommandNotImplementedException
 
         return command
 
@@ -130,21 +138,33 @@ class SvgPathCommandFactory():
         return tokens
 
     def append_types_and_parameter_lists(self, types, parameters, current_command, current_parameters):
+        assert current_command in self.KNOWN_COMMANDS
         n_params = self.required_num_of_parameters[current_command]
-        if len(current_parameters) == n_params:
+        n_found = len(current_parameters)
+
+        if n_found == n_params:
             types.append(current_command)
             parameters.append(current_parameters)
-        elif len(current_parameters) > n_params and n_params > 0:
+        elif n_found > n_params > 0:
             # add one command of the prescribed type
             types.append(current_command)
             parameters.append(current_parameters[:n_params])
             current_parameters = current_parameters[n_params:]
             # following parameters belong to the implied subsequent types, as per the standard
-            while len(current_parameters) >= n_params:
-                types.append(self.subsequent_command[current_command])
-                parameters.append(current_parameters[:n_params])
-                current_parameters = current_parameters[n_params:]
-        elif len(current_parameters) > n_params and n_params == 0:
+            while len(current_parameters) > n_params:
+                if current_command == 'M':
+                    next_command = 'L'
+                if current_command == 'm':
+                    next_command = 'l'
+                else:
+                    next_command = current_command
+
+                types.append(next_command)
+                n_needed = self.required_num_of_parameters[next_command]
+                parameters.append(current_parameters[:n_needed])
+                current_parameters = current_parameters[n_needed:]
+
+        elif len(current_parameters) > n_params == 0:
             raise SvgPathCommandTooManyParametersException()
         elif len(current_parameters) < n_params:
             raise SvgPathCommandInsufficientParametersException()
@@ -161,6 +181,7 @@ class SvgPathCommandFactory():
         current_parameters = []
         for token in tokens:
             if token.isalpha():
+                assert token in self.KNOWN_COMMANDS
                 if current_command is not None:
                     types, parameters = self.append_types_and_parameter_lists(
                         types,
@@ -173,9 +194,9 @@ class SvgPathCommandFactory():
             elif current_command is not None:
                 current_parameters.append(float(token))
             elif token == '':
-                break
+                continue
             else:
-                raise SvgPathDataUnexpectedParameterException()
+                raise BaseException()
 
         types, parameters = self.append_types_and_parameter_lists(
             types,
@@ -214,13 +235,16 @@ class MSvgPathCommand(SvgPathCommand):
         return (self.parameters[0], self.parameters[1])
 
 
-class mSvgPathCommand(MSvgPathCommand):
+class mSvgPathCommand(SvgPathCommand):
     def __init__(self, parameters):
-        super().super().__init__('m', parameters)
+        super().__init__('m', parameters)
 
-    def get_next_vertex(self, command, current_vertex):
-        next_vertex = (self.parameters[0], self.parameters[1])
+    def get_next_vertex(self, current_vertex):
+        next_vertex = (current_vertex[0] + self.parameters[0], current_vertex[1] + self.parameters[1])
         return next_vertex
+
+    def get_pathstart(self):
+        return (self.parameters[0], self.parameters[1])
 
 
 class VSvgPathCommand(SvgPathCommand):

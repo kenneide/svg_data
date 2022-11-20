@@ -12,7 +12,7 @@ filenames = [
 	#'skullandbones.svg',
 ]
 
-NUMBER_OF_COORDINATES = 5
+NUMBER_OF_COORDINATES = 50
 
 for filename in filenames:
 	with open(root + '/' + filename, 'r') as file:
@@ -20,7 +20,7 @@ for filename in filenames:
 
 	svg = SvgHandle(svg_data)
 
-	name = os.path.basename(filename)
+	name, _ = filename.split('.')
 
 	svg.export_to_csv(root + '/' + name + '.csv', NUMBER_OF_COORDINATES)
 

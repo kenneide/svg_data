@@ -29,9 +29,11 @@ class SvgPath(SvgGraphicsElement):
 		return self._commands
 					
 	def add_commands(self, type, parameters):
+		isFirst = True
 		for type, parameter_set in zip(type, parameters):
-			command = self._factory.get_command(type, parameter_set)
+			command = self._factory.get_command(type, parameter_set, isFirst)
 			self._commands.append(command)
+			isFirst = False
 
 	def segmentize(self):
 		current_vertex = None

@@ -50,7 +50,7 @@ class SvgHandle():
 					)
 				)
 				
-		for child_element in element.getchildren():
+		for child_element in list(element):
 			self.populate_elements(child_element, copy.deepcopy(transform))
 		
 	@property
